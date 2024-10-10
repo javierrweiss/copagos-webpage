@@ -1,0 +1,80 @@
+:root{
+    --rblue: #88D9E6;
+    --darkgray: #374B4A;
+    font-family: 'Inria Sans';
+}
+
+header{
+    background-color: var(--rblue); 
+    color: #7B4B94;   
+}
+
+body {
+    margin: 0;    
+}
+
+main {
+    background-image: url('img/SanatorioColegialesEntrada.jpg');
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: black;
+    padding: 2.3rem;
+}
+
+footer{
+    display: flex;
+    flex-direction: column;
+    background-color: var(--darkgray);
+    color: white;
+    padding: 3rem;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+#logo{
+    display: grid;
+    grid-template-columns: 35% 65%;
+}
+
+
+#grilla {
+    display: grid;
+    gap: 0.25rem;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--rblue);
+    padding: 1rem;
+    margin-top: 3rem;
+    margin-bottom: 2rem;
+    margin-left: 27rem;
+    margin-right: 27rem;
+    border-radius: 12%;
+    border-style: groove;
+    color: #7B4B94;
+}
+
+img{
+    height: 125px;
+    width: 250px;
+}
+
+.renglon{
+    display: grid;
+    gap: 0.25rem;
+}
+
+.botones {
+    padding: 1rem;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    justify-content: center;
+}
+
+button{
+    background-color: var(--darkgray);
+    border-radius: 12%;
+    padding: 0.45rem;
+    color: paleturquoise;
+}

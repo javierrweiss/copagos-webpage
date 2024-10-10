@@ -1,0 +1,25 @@
+{:paths ["src" "public"]
+ :pods {org.babashka/postgresql {:version "0.1.2"}}
+ :deps {io.github.babashka/sci.nrepl
+        {:git/sha "2f8a9ed2d39a1b09d2b4d34d95494b56468f4a23"}
+        com.github.seancorfield/honeysql {:mvn/version "2.6.1161"}}
+ :tasks {http-server {:requires [server]
+                      :task (server/main)}
+
+         start {:requires [server]
+                :task (server/start)}
+         
+         stop {:requires [server]
+               :task (server/stop)}
+
+         browser-nrepl {:doc "Start browser nREPL"
+                        :requires ([sci.nrepl.browser-server :as bp])
+                        :task (bp/start! {})}
+
+         -dev {:depends [browser-nrepl start]}
+         
+         dev {:task (do (run '-dev {:parallel true})
+                        (println "Iniciando servidor en puerto 1341") 
+                        (deref (promise)))}
+         prod {:task (do (run 'http-server)
+                         (deref (promise)))}}}
