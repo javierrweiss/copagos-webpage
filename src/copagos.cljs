@@ -12,20 +12,39 @@
        (mapv #(js/document.getElementById %))
        (mapv #(set! (.-checked %) false))))
 
+(defn limpiar-fecha
+  []
+  (set! (.-value (js/document.getElementById "fecha")) ""))
+
 (defn limpiar 
   [] 
   (reset! datos (hash-map))
+  (limpiar-fecha)
   (limpiar-checkboxes))
 
-(defn enviar
+(defn parsear-planes
+  [obra planes-str]
+  (let [planes (mapv #(string/trim %) (string/split planes-str #","))]
+    (mapv #(str obra "-" %) planes)))
+
+(defn validar-datos
+  [data]
+  (and
+   (every? data [:obra :plan :especialidad :copago :vigencia])
+   (seq (:especialidad data))))
+ 
+(defn procesar 
   []
   (let [especialidades (->> (:especialidad @datos) (map name) (string/join ", "))
         mensaje-confirmacion (str "Se van a guardar los siguientes datos: \n"
-                                  "Obra: " (:obra @datos) " Plan: " (:plan @datos) "\n"
-                                  "Especialidad: " especialidades " Copago: " (:copago @datos) "\n"
+                                  "Obra: " (:obra @datos) "\n"
+                                  "Plan: " (:plan @datos) "\n"
+                                  "Especialidad: " especialidades "\n"
+                                  "Copago: " (:copago @datos) "\n"
+                                  "Vigencia: " (:vigencia @datos) "\n"
                                   "\n ¿Está seguro?")]
     (when (.confirm js/window mensaje-confirmacion)
-      (swap! datos assoc :codplan (str (:obra @datos) "-" (:plan @datos))) 
+      (swap! datos assoc :codplan (parsear-planes (:obra @datos) (:plan @datos)))
       (-> (js/fetch "/guardar" (clj->js {:headers {"Content-Type" "application/json"}
                                          :method "POST"
                                          :body (->> @datos
@@ -33,10 +52,16 @@
                                                     (.stringify js/JSON))}))
           (p/then (fn [resp]
                     (if (.-ok resp)
-                      (do 
+                      (do
                         (limpiar)
                         (js/alert "¡Éxito! ¡Registro guardado!"))
                       (js/alert "¡Lo sentimos! ¡Hubo un error!"))))))))
+
+(defn enviar
+  []
+  (if (validar-datos @datos)
+    (procesar)
+    (js/alert "¡No se pudieron validar los datos! Por favor, complete todos los campos")))
 
 (defn registrar-seleccion-especialidad
   [coll valor_nuevo]
@@ -85,6 +110,12 @@
                :on-change #(swap! datos update :especialidad registrar-seleccion-especialidad :consulta-nutricion)}]
       [:label {:for "consulta-nutricion"} [:i "Consulta nutricion"]]]]
     [:div.renglon
+     [:label [:b "Vigente desde"]]
+     [:input {:type "date"
+              :id "fecha"
+              :required true
+              :on-change #(swap! datos assoc :vigencia (-> % .-target .-value))}]]
+    [:div.renglon
      [:label [:b "Monto copago"]]
      [:input {:type "number"
               :required true
@@ -99,6 +130,7 @@
 
 (comment
   
+  (limpiar-fecha)
   (limpiar-checkboxes)
    
   (.stringify js/JSON (clj->js {:a 33 :b 334}))
@@ -134,9 +166,16 @@
 
   (-> {:a 1 :z #{:a :b}} :z)
   
-  
-  @datos
-  
+  (let [p "p,f,e,r,t"
+        pl "K, L, Ñ, E"
+        pla " D ,A ,e , a"]
+    (parsear-planes 1820 pla)) 
+           
+  @datos   
+  (every? @datos [:obra :plan :especialidad :copago :vigencia])
+
+  (validar-datos @datos)
+
   ) 
  
 
