@@ -52,6 +52,12 @@
             0)))
  
 (defn guardar
+  "En el body del request recibe un JSON con las siguientes llaves: codplan, especialidad, vigencia y copago
+   De copagos recibe un vector, de especialidad un conjunto y de copago un número. 
+   Procesa las especialidades (son llaves que traen vectores de enteros provenientes de `especialidad->codigo`), 
+   donde el nombre de la llave corresponde al campo `categoria`.
+   Crea registros de la forma [codplan, especialidad, categoria, copago] y [codplan, categoria, vigencia, copago] 
+   y los inserta en la tabla de copagos (si la fecha de vigencia es igual o menor a la actual) y en la tabla de historico"
   [{:keys [body] :as req}]
   #_(def request req)
   (timbre/info "Request recibida: " req)
