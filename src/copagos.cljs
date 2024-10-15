@@ -72,7 +72,8 @@
 
 (defn formulario
   []
-  [:form {:on-submit #(.preventDefault %)}
+  [:form {:hidden false
+          :on-submit #(.preventDefault %)}
    [:div#grilla
     [:div.renglon
      [:label [:b "Obra social"]]
@@ -125,7 +126,24 @@
      [:button {:on-click enviar} "Enviar" ]
      [:button {:on-click limpiar} "Cancelar" ]]]])
 
-(rdom/render [formulario] (js/document.getElementById "main"))
+(defn historia
+  []
+  [:div#historia {:hidden true}
+   [:h3 "Registro histórico"]])
+
+(defn visual-registros
+  []
+  [:div#visual-registros {:hidden true}
+   [:h3 "Copagos por obra y especialidad"]])
+
+(defn pagina
+  []
+  [:<> 
+   [formulario]
+   [historia]
+   [visual-registros]])
+
+(rdom/render [pagina] (js/document.getElementById "main"))
 
 
 (comment
@@ -176,6 +194,6 @@
 
   (validar-datos @datos)
 
-  ) 
+  )  
  
-
+ 

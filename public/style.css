@@ -78,3 +78,7 @@ button{
     padding: 0.45rem;
     color: paleturquoise;
 }
+
+#historia, #visual-registros{
+    background-color: var(--rblue);
+}
