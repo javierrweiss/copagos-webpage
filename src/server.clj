@@ -96,6 +96,7 @@
 
 (defn guardar-si-esta-vigente
   [conn]
+  (timbre/info "Busca copagos vigentes...")
   (let [vigentes (pg/execute! conn (buscar-copagos-por-entrar-en-vigencia))]
     (when (seq vigentes)
       (letfn [(inserta-o-actualiza [{:tbl_copago_historico/keys [codplan categoria monto]}]
@@ -103,7 +104,7 @@
                   (doseq [especialidad especialidades]
                     (if (existe-registro? conn codplan especialidad)
                       (pg/execute! conn (actualizar monto codplan especialidad))
-                      (pg/execute! conn (insertar-planes [[codplan especialidad categoria monto]]))))))]
+                      (pg/execute! conn (insertar-planes [[codplan especialidad [:inline categoria] monto]]))))))]
         (doseq [vigente vigentes] (inserta-o-actualiza vigente))))))
 
 (defn preparar-registros-planes
@@ -167,6 +168,7 @@
 
 (defn ejecutar-background-job
   []
+  (timbre/info "Ejecutando trabajo en el trasfondo...")
   (at/every
    dia-en-ms
    (fn []
@@ -207,22 +209,26 @@
 (defonce server (atom nil))
 
 (defn start []
+  (timbre/info "Iniciando servicio...")
   (when-let [srv (run-server #'app {:port 1341})]
     (reset! server srv)))
 
 (defn stop
   []
+  (timbre/info "Deteniendo servicio...")
   (when @server
     (@server :timeout 100)
     (reset! server nil)))
 
 (defn restart
   []
+  (timbre/info "Reiniciando servicio...")
   (stop)
   (start))
 
 (defn main
   []
+  (timbre/info "Iniciando servicio...")
   (start)
   (ejecutar-background-job))
 
@@ -314,4 +320,9 @@
 
   (categoria->keyword "CONSULTA COMUN")
 
+  (let [conn (pg/get-connection db)]
+    (try
+      (guardar-si-esta-vigente conn)
+      (finally (pg/close-connection conn)))) 
+ 
   :rcf)    
