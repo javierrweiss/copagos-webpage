@@ -7,7 +7,9 @@
             [honey.sql :as sql]
             [cheshire.core :as json]
             [taoensso.timbre :as timbre]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [overtone.at-at :as at]
+            [hiccup2.core :refer [html]])
   (:import java.io.IOException
            java.time.LocalDate))
 
@@ -15,9 +17,34 @@
 
 (require '[pod.babashka.postgresql :as pg])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; MISCELANEO ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def dia-en-ms (* 60000 60 24))
 
 (def especialidad->codigo (-> (io/file "public/especialidades.edn") slurp edn/read-string))
+
+(def categorias
+  {:consulta-comun [:inline "CONSULTA COMUN"]
+   :consulta-especialista [:inline "CONSULTA ESPECIALISTA"]
+   :consulta-nutricion [:inline "CONSULTA NUTRICION"]})
+
+(defn categoria->keyword
+  [categoria]
+  (if-not (string? categoria)
+    (throw (java.lang.IllegalArgumentException. "El input no es un String"))
+    (-> categoria
+        (string/replace #"\s" "-")
+        string/lower-case
+        keyword)))
+
+(defn es-hoy-o-antes?
+  "Recibe un LocalDate o un string y devuelve true si la fecha es igual o menor a la fecha actual"
+  [fecha]
+  (when-let [f (if (instance? java.time.LocalDate fecha) fecha (LocalDate/parse fecha))]
+    (or (.isBefore f (LocalDate/now))
+        (.isEqual (LocalDate/now) f))))
+
+(def pool (at/mk-pool))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; SQL ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -28,20 +55,15 @@
          :password (System/getenv "TELECONSULTA_SANCOL_CONTRASENA")
          :port 5432})
 
-(defn es-hoy-o-antes?
-  "Recibe un LocalDate o un string y devuelve true si la fecha es igual o menor a la fecha actual"
-  [fecha]
-  (when-let [f (if (instance? java.time.LocalDate fecha) fecha (LocalDate/parse fecha))]
-    (or (.isBefore f (LocalDate/now))
-        (.isEqual (LocalDate/now) f))))
-
 (defn insertar-planes
+  "Recibe un vector con valores para codplan, especialidad, categoria y copago (mismo orden)"
   [valores]
   (sql/format {:insert-into :tbl_planes_obras_sociales
                :columns [:codplan :especialidad :categoria :copago]
                :values valores}))
 
 (defn insertar-historico
+  "Recibe un vector con valores para codplan, categoria, monto y vigente_desde (mismo orden)"
   [valores]
   (sql/format {:insert-into :tbl_copago_historico
                :columns [:codplan :categoria :monto :vigente_desde]
@@ -59,6 +81,12 @@
                :from :tbl_planes_obras_sociales
                :where [:and [:= :codplan codplan] [:= :especialidad especialidad]]}))
 
+(defn buscar-copagos-por-entrar-en-vigencia
+  []
+  (sql/format {:select [:codplan :categoria :monto]
+               :from :tbl_copago_historico
+               :where [:= :vigente_desde :current_date]}))
+
 (defn existe-registro?
   [conn codplan especialidad]
   (== 1 (or (-> (pg/execute! conn (buscar codplan especialidad))
@@ -66,15 +94,24 @@
                 :?column?)
             0)))
 
-(def categorias
-  {:consulta-comun [:inline "CONSULTA COMUN"]
-   :consulta-especialista [:inline "CONSULTA ESPECIALISTA"]
-   :consulta-nutricion [:inline "CONSULTA NUTRICION"]})
+(defn guardar-si-esta-vigente
+  [conn]
+  (let [vigentes (pg/execute! conn (buscar-copagos-por-entrar-en-vigencia))]
+    (when (seq vigentes)
+      (letfn [(inserta-o-actualiza [{:tbl_copago_historico/keys [codplan categoria monto]}]
+                (let [especialidades ((categoria->keyword categoria) especialidad->codigo)]
+                  (doseq [especialidad especialidades]
+                    (if (existe-registro? conn codplan especialidad)
+                      (pg/execute! conn (actualizar monto codplan especialidad))
+                      (pg/execute! conn (insertar-planes [[codplan especialidad categoria monto]]))))))]
+        (doseq [vigente vigentes] (inserta-o-actualiza vigente))))))
 
 (defn preparar-registros-planes
   "Recibe el cuerpo del request con las llaves requeridas y el mapeo de especialidad->código y devuelve un lazy-seq de vectores 
    con los valores listos para la actualización o inserción del registro correspondiente"
-  [{:keys [codplan especialidad copago]} esp->cod]
+  [{:keys [codplan especialidad copago] :as registro} esp->cod]
+  (when (or (nil? registro) (nil? esp->cod) (not (map? esp->cod)) (not (map? registro)))
+    (throw (IllegalArgumentException. "El input es nulo o no es un mapa")))
   (->> (seq especialidad)
        (map keyword)
        (mapcat #(for [plan codplan esp (% esp->cod)]
@@ -83,7 +120,9 @@
 (defn preparar-registros-historico
   "Recibe el cuerpo del request con las llaves requeridas y devuelve un vector de vectores 
    con los valores listos para la inserción del registro correspondiente"
-  [{:keys [codplan especialidad copago vigencia]}]
+  [{:keys [codplan especialidad copago vigencia] :as registro}]
+  (when (or (nil? registro) (not (map? registro)))
+    (throw (IllegalArgumentException. "El input es nulo o no es un mapa")))
   (into [] (for [plan codplan esp (seq especialidad)]
              [plan ((keyword esp) categorias) copago [:inline vigencia]])))
 
@@ -105,11 +144,10 @@
               registros-historicos (preparar-registros-historico datos)
               registros-planes (preparar-registros-planes datos especialidad->codigo)
               inserta-planes (fn []
-                               (->> registros-planes
-                                    (mapv (fn [[codplan especialidad _ copago :as reg]]
-                                            (if (existe-registro? conn codplan especialidad)
-                                              (pg/execute! conn (actualizar copago codplan especialidad))
-                                              (pg/execute! conn (insertar-planes [reg])))))))
+                               (doseq [[codplan especialidad _ copago :as reg] registros-planes]
+                                 (if (existe-registro? conn codplan especialidad)
+                                   (pg/execute! conn (actualizar copago codplan especialidad))
+                                   (pg/execute! conn (insertar-planes [reg])))))
               inserta-historico (fn []
                                   (pg/execute! conn (insertar-historico registros-historicos)))]
           (if (es-hoy-o-antes? fecha-vigencia)
@@ -124,6 +162,25 @@
         (finally (pg/close-connection conn))))
     (catch IOException e {:status 500
                           :body (json/encode {:error (ex-message e)})})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; BACKGROUND-JOB ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn ejecutar-background-job
+  []
+  (at/every
+   dia-en-ms
+   (fn []
+     (try
+       (let [conn (pg/get-connection db)]
+         (try
+           (guardar-si-esta-vigente conn)
+           (catch IOException e (timbre/error (ex-message e)))
+           (finally (pg/close-connection conn))))
+       (catch IOException e (timbre/error (ex-message e)))))
+   pool
+   :initial-delay 1000))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; SERVICIO ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn app
   [req]
@@ -142,8 +199,11 @@
     ["/img/SanatorioColegialesEntrada.jpg"] {:status 200
                                              :headers {"Content-Type" "img/jpg"}
                                              :body (io/file "public/img/SanatorioColegialesEntrada.jpg")}
-    ["/guardar"] (guardar req)))
-
+    ["/guardar"] (guardar req)
+    :else {:status 404
+           :headers {"Content-Type" "text/html"}
+           :body (str (html [:h1 "¡Lo sentimos! No encontramos lo que anda buscando"]))}))
+ 
 (defonce server (atom nil))
 
 (defn start []
@@ -164,7 +224,8 @@
 (defn main
   []
   (start)
-  @(promise))
+  (ejecutar-background-job))
+
 
 (comment
   (let [especialidades {:consulta-comun [354 386 358]
@@ -207,9 +268,6 @@
   (es-hoy-o-antes? "2024-09-21")
   (es-hoy-o-antes? (LocalDate/of 2021 10 1))
 
-
-  (hyperfiddle.rcf/enable!)
-
   (start)
   (restart)
   (stop)
@@ -237,14 +295,14 @@
                                                  :body (json/encode {:codplan "1800-Y"
                                                                      :copago 225
                                                                      :especialidad 23})})
-  
+
 
   (def r (pg/execute! db (buscar "101-A" 931)))
 
   (pg/execute! db (actualizar 18000 "101-A" 931))
- 
+
   (pg/execute! db (insertar-historico [["1240-B" [:inline "CONSULTA COMUN"] 2000 [:inline "2024-10-15"]]]))
- 
+
   (def body-example {:especialidad #{:consulta-comun :consulta-nutricion},
                      :obra "1820",
                      :vigencia "2024-10-14",
@@ -252,5 +310,8 @@
                      :copago 5000,
                      :plan "A,F,K,L,P"})
 
+  (def t (pg/execute! db (buscar-copagos-por-entrar-en-vigencia)))
 
-  :rcf)   
+  (categoria->keyword "CONSULTA COMUN")
+
+  :rcf)    
