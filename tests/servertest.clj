@@ -102,9 +102,22 @@
                             :accept (gen/return :json)
                             :body gen/string
                             :method (gen/elements [:post :get :put :delete])
-                            :uri (gen/elements ["" "/cualquier_cosa" "/guardar" "/style.css" "/" "/img/SanatorioColegialesEntrada.jpg" "img"]))] 
+                            :uri (gen/elements ["" 
+                                                "/cualquier_cosa" 
+                                                "/guardar" 
+                                                "/style.css" 
+                                                "/" 
+                                                "/img/SanatorioColegialesEntrada.jpg" 
+                                                "img"
+                                                "/copagos.cljs"
+                                                "/planes"
+                                                "/la-chingada"
+                                                "x.cljs"]))] 
       (with-redefs-fn {#'server/guardar (fn [_] {:status 200
-                                                 :body "Guardado!"})}
+                                                 :body "Guardado!"})
+                       #'server/obtiene-copagos-guardados (fn [_]
+                                                            {:status 200
+                                                             :body "Ok"})}
         #(is (true? (:pass? (tc/quick-check 100 (prop/for-all [r req]
                                                               (map? (app r)))))))))))
  

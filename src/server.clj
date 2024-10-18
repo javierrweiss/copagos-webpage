@@ -178,7 +178,10 @@
   (timbre/info "Query string: " query-string)
   (try
     (let [conn (pg/get-connection db)
-          obra (when-let [s (re-seq #"\d+" query-string)] (first s))] 
+          obra (if-let [s (re-seq #"\d+" query-string)] 
+                 (first s)
+                 {:status 400
+                  :body (-> [:h1 "Debe ingresar el código de la obra social"] html str)})] 
       (try 
         (when-let [resultado (seq (buscar-planes-por-obra conn obra))] 
           {:status 200
@@ -232,7 +235,7 @@
                                              :headers {"Content-Type" "img/jpg"}
                                              :body (io/file "public/img/SanatorioColegialesEntrada.jpg")}
     ["/guardar"] (guardar req)
-    ["/planes"] (obtiene-copagos-guardados req)
+    [#"\/planes\?obra=\d+|\/planes"] (obtiene-copagos-guardados req)
     :else {:status 404
            :headers {"Content-Type" "text/html"}
            :body (str (html [:h1 "¡Lo sentimos! No encontramos lo que anda buscando"]))}))
@@ -293,6 +296,15 @@
 
 
 (comment
+ 
+  (match ["/planes?obra=122" #_#_"a" 122]
+    ["a"] "Es A"
+    [122] "Es numero"
+    [#"si"] "Ajá"
+    [#"\s"] "Espacio"
+    [#"\w+"] "yes!!"
+    [#"\/planes\?obra=\d+"] "Bien!!!" 
+    :else :not-found)
 
   (.isEqual (LocalDate/now) (LocalDate/parse "2024-10-15"))
   (.isBefore (LocalDate/now) (LocalDate/parse "2024-10-12"))
@@ -334,6 +346,9 @@
                                                                      :especialidad 23})})
 
   (let [req @(client/get "http://127.0.0.1:1341/planes" {:query-params {:obra 1900}})]
+    (-> req :body io/reader slurp json/decode))
+   
+  (let [req @(client/get "http://127.0.0.1:1341/planes?obra=1900")]
     (-> req :body io/reader slurp json/decode))
   
   @(client/get "http://127.0.0.1:1341/style.css")
