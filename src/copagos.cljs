@@ -74,8 +74,8 @@
 
 (defn buscar-planes-actuales
   [atom-coll] 
-  (-> (js/fetch (str "/planes?obra=" #_@obra 1900))
-      (p/then (fn [response]
+  (-> (js/fetch (str "/planes?obra=" @obra)) 
+      (p/then (fn [response] 
                 (if (.-ok response)
                   (-> (.json response)
                       (p/then (fn [cuerpo]
@@ -86,6 +86,19 @@
                  (js/console.error "Error en la solicitud" error)))))
  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;; COMPONENTES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn header
+  []
+  [:header
+   [:div#logo
+    [:div#imagen
+     [:img {:src "img/Logo Sanatorio Colegiales - Horizontal-689x300 2.png"
+            :alt "Logo"}]]
+    [:div#titulo [:h1 "Ingreso copagos telemedicina"]]
+    [:div#menu
+     #_[:img#menu-img {:src "img/menu-icon.png"
+                     :alt "Menu"}]
+     [:button#menu-button {}]]]])
 
 (defn formulario
   []
@@ -144,35 +157,37 @@
      [:button {:on-click limpiar} "Cancelar" ]]]])
 
 (defn tabla-planes-actuales
-  []
-  (let [resultado (r/atom [])
-        _ (buscar-planes-actuales resultado)] 
-    (fn [] 
-      [:div.tabla
-       [:table
-        [:tr 
-         [:th "Obra/plan"]
-         [:th "Especialidad"]
-         [:th "Categoría"]
-         [:th "Copago"]]
-        (for [elem @resultado]
-          [:tr 
-           [:td (:tbl_planes_obras_sociales/codplan elem)]
-           [:td (:tbl_planes_obras_sociales/especialidad elem)]
-           [:td (:tbl_planes_obras_sociales/categoria elem)]
-           [:td (str (:tbl_planes_obras_sociales/copago elem) " $")]])]])))
+  [resultado]
+  [:div.tabla
+   [:table
+    [:tr
+     [:th "Obra/plan"]
+     [:th "Especialidad"]
+     [:th "Categoría"]
+     [:th "Copago"]]
+    (for [elem @resultado]
+      [:tr
+       [:td (:tbl_planes_obras_sociales/codplan elem)]
+       [:td (:tbl_planes_obras_sociales/especialidad elem)]
+       [:td (:tbl_planes_obras_sociales/categoria elem)]
+       [:td (str (:tbl_planes_obras_sociales/copago elem) " $")]])]])
 
 (defn visual-registros
   []
-  [:div#visual-registros {:hidden true}
-   [:h3 "Copagos por obra y especialidad"]
-   [:input {:type "number"
-            :required true
-            :value @obra
-            :placeholder "Ingrese el código de obra social"
-            :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]
-   (when (not= 0 @obra)
-     [tabla-planes-actuales])])
+  (let [resultado (r/atom [])]
+    (fn []
+      [:div#visual-registros 
+       [:h2 "Copagos por obra y especialidad"]
+       [:div#visual-registros-grid 
+        [:div 
+         [:input {:type "number"
+                  :required true
+                  :value @obra
+                  :placeholder "Ingrese el código de obra social y presione Enter"
+                  :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
+        [:div.botones 
+         [:button {:on-click #(buscar-planes-actuales resultado)} "Buscar"]]]
+       [tabla-planes-actuales resultado]])))
 
 (defn tabla-historico
   []
@@ -180,16 +195,17 @@
 
 (defn historia
   []
-  [:div#historia {:hidden true}
-   [:h3 "Registro histórico"]])
+  [:div#historia 
+   [:h2 "Registro histórico"]])
 
 (defn pagina
   []
-  [:<> 
-   [tabla-planes-actuales]
-   #_#_#_[formulario]
-   [historia]
-   [visual-registros]])
+  [:<>
+   [header]
+   [:main 
+    [formulario]
+    [historia]
+    [visual-registros]]])
 
 (rdom/render [pagina] (js/document.getElementById "main"))
 
@@ -246,22 +262,10 @@
  
   @obra
   
-  (let [c (r/atom [])]
-    (buscar-planes-actuales c)
-      @c)
-  
-  (let [atom-coll (r/atom [])]
-    (-> (js/fetch (str "/planes?obra=" @obra))
-        (p/then #(when (.-ok %)
-                   (p/let [cuerpo (.json %)]
-                     (p/then (fn [data]
-                               (js/console.log "JSON data:" data)
-                               (reset! atom-coll (js->clj data))))))))
-    @atom-coll) 
- 
-  (buscar-planes-actuales)
    
   (js/React.useEffect)
+
+  
   )  
   
  

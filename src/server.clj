@@ -234,6 +234,9 @@
     ["/img/SanatorioColegialesEntrada.jpg"] {:status 200
                                              :headers {"Content-Type" "img/jpg"}
                                              :body (io/file "public/img/SanatorioColegialesEntrada.jpg")}
+    ["/img/menu-icon.png"] {:status 200
+                            :headers {"Content-Type" "img/jpg"}
+                            :body (io/file "public/img/menu-icon.png")}
     ["/guardar"] (guardar req)
     [#"\/planes\?obra=\d+|\/planes"] (obtiene-copagos-guardados req)
     :else {:status 404
