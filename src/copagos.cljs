@@ -1,10 +1,12 @@
 (ns copagos
   (:require [reagent.core :as r]
-            [reagent.dom :as rdom]
+            [reagent.dom :as rdom] 
             [promesa.core :as p]
             [clojure.string :as string]))
 
 (def datos (r/atom (hash-map)))
+
+(def obra (atom 0))
 
 (defn limpiar-checkboxes
   []
@@ -70,6 +72,12 @@
     (contains? coll valor_nuevo) (disj coll valor_nuevo)
     :else (conj coll valor_nuevo)))
 
+(defn buscar-planes-actuales
+  []
+  (js/fetch (str "/planes?obra=" @obra) (clj->js {:method "GET"})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;; COMPONENTES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn formulario
   []
   [:form {:hidden false
@@ -134,7 +142,21 @@
 (defn visual-registros
   []
   [:div#visual-registros {:hidden true}
-   [:h3 "Copagos por obra y especialidad"]])
+   [:h3 "Copagos por obra y especialidad"]
+   [:input {:type "number"
+            :required true
+            :value @obra
+            :placeholder "Ingrese el código de obra social"
+            :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]
+   [:button {:on-click buscar-planes-actuales} "Buscar"]])
+
+(defn tabla-planes-actuales
+  [datos]
+  [:div.tabla])
+
+(defn tabla-historico
+  [datos]
+  [:div.tabla])
 
 (defn pagina
   []
@@ -194,6 +216,9 @@
 
   (validar-datos @datos)
 
+  (-> (buscar-planes-actuales) (p/then #(js/console.log %)))
+  
+  (js/React.useEffect )
   )  
- 
+  
  
