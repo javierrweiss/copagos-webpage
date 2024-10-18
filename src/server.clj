@@ -107,6 +107,13 @@
                       (pg/execute! conn (insertar-planes [[codplan especialidad [:inline categoria] monto]]))))))]
         (doseq [vigente vigentes] (inserta-o-actualiza vigente))))))
 
+(defn buscar-planes-por-obra
+  [conn obra]
+  (let [sql (sql/format {:select [:codplan :especialidad :categoria :copago]
+                         :from :tbl_planes_obras_sociales
+                         :where [:like :codplan [:inline (str obra "%")]]})]
+    (pg/execute! conn sql)))
+
 (defn preparar-registros-planes
   "Recibe el cuerpo del request con las llaves requeridas y el mapeo de especialidad->código y devuelve un lazy-seq de vectores 
    con los valores listos para la actualización o inserción del registro correspondiente"
@@ -126,6 +133,8 @@
     (throw (IllegalArgumentException. "El input es nulo o no es un mapa")))
   (into [] (for [plan codplan esp (seq especialidad)]
              [plan ((keyword esp) categorias) copago [:inline vigencia]])))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; HANDLERS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn guardar
   "En el body del request recibe un JSON con las siguientes llaves: codplan, especialidad, vigencia y copago
@@ -164,6 +173,26 @@
     (catch IOException e {:status 500
                           :body (json/encode {:error (ex-message e)})})))
 
+(defn obtiene-copagos-guardados
+  [{:keys [query-string]}] 
+  (timbre/info "Query string: " query-string)
+  (try
+    (let [conn (pg/get-connection db)
+          obra (when-let [s (re-seq #"\d+" query-string)] (first s))] 
+      (try 
+        (when-let [resultado (seq (buscar-planes-por-obra conn obra))] 
+          {:status 200
+           :body (-> resultado
+                     vec
+                     json/encode)})
+        (catch IOException e {:status 500
+                              :body (json/encode {:error (ex-message e)})})
+        (catch Exception e {:status 500
+                            :body (json/encode {:error (ex-message e)})})
+        (finally (pg/close-connection conn))))
+    (catch IOException e {:status 500
+                          :body (json/encode {:error (ex-message e)})})))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; BACKGROUND-JOB ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn ejecutar-background-job
@@ -186,6 +215,7 @@
 
 (defn app
   [req]
+  (timbre/info (str "Request: " req))
   (match [(:uri req)]
     ["/"] {:status 200
            :headers {"Content-Type" "text/html"}
@@ -202,6 +232,7 @@
                                              :headers {"Content-Type" "img/jpg"}
                                              :body (io/file "public/img/SanatorioColegialesEntrada.jpg")}
     ["/guardar"] (guardar req)
+    ["/planes"] (obtiene-copagos-guardados req)
     :else {:status 404
            :headers {"Content-Type" "text/html"}
            :body (str (html [:h1 "¡Lo sentimos! No encontramos lo que anda buscando"]))}))
@@ -302,6 +333,10 @@
                                                                      :copago 225
                                                                      :especialidad 23})})
 
+  (let [req @(client/get "http://127.0.0.1:1341/planes" {:query-params {:obra 1900}})]
+    (-> req :body io/reader slurp json/decode))
+  
+  @(client/get "http://127.0.0.1:1341/style.css")
 
   (def r (pg/execute! db (buscar "101-A" 931)))
 
@@ -322,7 +357,8 @@
 
   (let [conn (pg/get-connection db)]
     (try
-      (guardar-si-esta-vigente conn)
+      #_(guardar-si-esta-vigente conn)
+      (buscar-planes-por-obra conn 1900)
       (finally (pg/close-connection conn)))) 
  
   :rcf)    

@@ -33,7 +33,7 @@ bb prod
 - Implementar guardado en ambas tablas, de tal modo que:
     * Si la fecha de vigencia es igual o menor a la actual se guarden los registros correspondientes en ambas tablas. ✅
     * Si la fecha de vigencia es superior a la actual, sólo se guarde en scweb.tbl_copago_historico.✅
-- Implementar alguna clase de scheduler que todos los días a cierta hora busque si existe un registro en scweb.tbl_copago_historico cuya fecha `vigente_desde` sea igual a la fecha actual y lo inserte en scweb.tbl_planes_obras_sociales.
+- Implementar alguna clase de scheduler que todos los días a cierta hora busque si existe un registro en scweb.tbl_copago_historico cuya fecha `vigente_desde` sea igual a la fecha actual y lo inserte en scweb.tbl_planes_obras_sociales. ✅
 - Crear UI para visualización de histórico
 - Crear UI para visualización del estado actual de la tabla (se me ocurre que cada uno de estos elementos los dejemos invisibles en el DOM y luego que un botón en la barra superior los haga visibles)
 - Agregar fecha de vigencia en el formulario ✅
