@@ -82,3 +82,36 @@ button{
 #historia, #visual-registros{
     background-color: var(--rblue);
 }
+
+.tabla {
+    display: flex;
+    color: white;
+    margin: 3rem;
+    padding: 1rem;
+    align-items: center;
+    justify-content: center;
+    
+}
+
+table, th, td {
+    border: 1px solid white;
+}
+
+th, td {
+    padding: 1.5rem;
+}
+
+tr:nth-child(even) {
+    background-color: var(--rblue);
+    color: var(--darkgray);
+}
+
+tr:nth-child(odd) {
+ background-color: black;
+ color: white;
+}
+
+tr:hover {
+    background-color: var(--darkgray);
+    color: white;
+}
