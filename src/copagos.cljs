@@ -81,29 +81,45 @@
                       (p/then (fn [cuerpo]
                                 (prn (js->clj cuerpo))
                                 (reset! atom-coll (js->clj cuerpo :keywordize-keys true)))))
-                  (js/console.error "No existen registros" response))))
+                  (js/alert "No se encontraron registros"))))
       (p/catch (fn [error]
                  (js/console.error "Error en la solicitud" error)))))
  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;; COMPONENTES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn dropdownmenu
+  [seleccion]
+  [:div#opciones-dropdownmenu
+   [:ul#dropdownmenu-list
+    [:li
+     {:on-click #(reset! seleccion :visual-planes-actuales)}
+     "Ver registros por obra"]
+    [:li
+     {:on-click #(reset! seleccion :visual-historica)}
+     "Ver copago histórico por obra"]
+    [:li
+     {:on-click  #(reset! seleccion nil)}
+     "Ingreso copagos"]]])
+
 (defn header
-  []
-  [:header
-   [:div#logo
-    [:div#imagen
-     [:img {:src "img/Logo Sanatorio Colegiales - Horizontal-689x300 2.png"
-            :alt "Logo"}]]
-    [:div#titulo [:h1 "Ingreso copagos telemedicina"]]
-    [:div#menu
-     #_[:img#menu-img {:src "img/menu-icon.png"
-                     :alt "Menu"}]
-     [:button#menu-button {}]]]])
+  [seleccion]
+  (let [esta-abierto? (r/atom false)]
+    (fn []
+      [:header
+       [:div#logo
+        [:div#imagen
+         [:img {:src "img/Logo Sanatorio Colegiales - Horizontal-689x300 2.png"
+                :alt "Logo"}]]
+        [:div#titulo [:h1 "Ingreso copagos telemedicina"]]
+        [:div#menu
+         [:button#menu-button {:on-click #(swap! esta-abierto? not)}]
+         (when esta-abierto?
+           [dropdownmenu seleccion])]]])))
 
 (defn formulario
   []
-  [:form {:hidden false
-          :on-submit #(.preventDefault %)}
+  [:form#formulario-principal
+   {:on-submit #(.preventDefault %)}
    [:div#grilla
     [:div.renglon
      [:label [:b "Obra social"]]
@@ -123,21 +139,21 @@
       [:input {:type "checkbox"
                :id "consulta-comun"
                :required true
-               :value (-> @datos :especialidad :consulta-comun) 
+               :value (-> @datos :especialidad :consulta-comun)
                :on-change #(swap! datos update :especialidad registrar-seleccion-especialidad :consulta-comun)}]
       [:label {:for "consulta-comun"} [:i "Consulta común"]]]
-     [:div.checkbox 
+     [:div.checkbox
       [:input {:type "checkbox"
                :id "consulta-especialista"
                :required true
-               :value (-> @datos :especialidad :consulta-especialista) 
+               :value (-> @datos :especialidad :consulta-especialista)
                :on-change #(swap! datos update :especialidad registrar-seleccion-especialidad :consulta-especialista)}]
       [:label {:for "consulta-especialista"} [:i "Consulta especialista"]]]
      [:div.checkbox
       [:input {:type "checkbox"
                :id "consulta-nutricion"
                :required true
-               :value (-> @datos :especialidad :consulta-nutricion) 
+               :value (-> @datos :especialidad :consulta-nutricion)
                :on-change #(swap! datos update :especialidad registrar-seleccion-especialidad :consulta-nutricion)}]
       [:label {:for "consulta-nutricion"} [:i "Consulta nutricion"]]]]
     [:div.renglon
@@ -153,8 +169,8 @@
               :value (:copago @datos)
               :on-change #(swap! datos assoc :copago (->> % .-target .-value (.parseFloat js/Number)))}]]
     [:div.botones
-     [:button {:on-click enviar} "Enviar" ]
-     [:button {:on-click limpiar} "Cancelar" ]]]])
+     [:button {:on-click enviar} "Enviar"]
+     [:button {:on-click limpiar} "Cancelar"]]]])
 
 (defn tabla-planes-actuales
   [resultado]
@@ -200,12 +216,15 @@
 
 (defn pagina
   []
-  [:<>
-   [header]
-   [:main 
-    [formulario]
-    [historia]
-    [visual-registros]]])
+  (let [seleccion-vista (r/atom nil)]
+    (fn []
+      [:<>
+       [header seleccion-vista]
+       [:main 
+        (cond 
+          (= @seleccion-vista :visual-historica) [historia]
+          (= @seleccion-vista :visual-planes-actuales) [visual-registros]
+          :else [formulario])]])))
 
 (rdom/render [pagina] (js/document.getElementById "main"))
 
@@ -265,6 +284,12 @@
    
   (js/React.useEffect)
 
+  (let [historia (js/document.getElementById "historia")
+        visual-registros (js/document.getElementById "visual-registros")
+        formulario-principal (js/document.getElementById "formulario-principal")]
+    (set! (.-hidden formulario-principal) false)
+    (set! (.-hidden visual-registros) true)
+    (set! (.-hidden historia) true))
   
   )  
   
