@@ -88,17 +88,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;; COMPONENTES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn dropdownmenu
-  [seleccion]
+  [seleccion menu-activo]
   [:div#opciones-dropdownmenu
    [:ul#dropdownmenu-list
     [:li
-     {:on-click #(reset! seleccion :visual-planes-actuales)}
+     {:on-click #(do 
+                   (reset! seleccion :visual-planes-actuales)
+                   (swap! menu-activo not))}
      "Ver registros por obra"]
     [:li
-     {:on-click #(reset! seleccion :visual-historica)}
+     {:on-click #(do 
+                   (reset! seleccion :visual-historica)
+                   (swap! menu-activo not))}
      "Ver copago histórico por obra"]
     [:li
-     {:on-click  #(reset! seleccion nil)}
+     {:on-click  #(do 
+                    (reset! seleccion nil)
+                    (swap! menu-activo not))}
      "Ingreso copagos"]]])
 
 (defn header
@@ -111,10 +117,10 @@
          [:img {:src "img/Logo Sanatorio Colegiales - Horizontal-689x300 2.png"
                 :alt "Logo"}]]
         [:div#titulo [:h1 "Ingreso copagos telemedicina"]]
-        [:div#menu
-         [:button#menu-button {:on-click #(swap! esta-abierto? not)}]
-         (when esta-abierto?
-           [dropdownmenu seleccion])]]])))
+        [:div#menu 
+         (if @esta-abierto?
+           [dropdownmenu seleccion esta-abierto?]
+           [:button#menu-button {:on-click #(swap! esta-abierto? not)}])]]])))
 
 (defn formulario
   []
