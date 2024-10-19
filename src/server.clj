@@ -114,6 +114,13 @@
                          :where [:like :codplan [:inline (str obra "%")]]})]
     (pg/execute! conn sql)))
 
+(defn buscar-historico-por-obra
+  [conn obra]
+  (let [sql (sql/format {:select [:codplan :categoria :vigente_desde :monto]
+                         :from :tbl_copago_historico
+                         :where [:like :codplan [:inline (str obra "%")]]})]
+    (pg/execute! conn sql)))
+
 (defn preparar-registros-planes
   "Recibe el cuerpo del request con las llaves requeridas y el mapeo de especialidad->código y devuelve un lazy-seq de vectores 
    con los valores listos para la actualización o inserción del registro correspondiente"
@@ -173,17 +180,16 @@
     (catch IOException e {:status 500
                           :body (json/encode {:error (ex-message e)})})))
 
-(defn obtiene-copagos-guardados
-  [{:keys [query-string]}] 
-  (timbre/info "Query string: " query-string)
+(defn obtiene-datos-por-obra
+  [query-string query-fn] 
   (try
     (let [conn (pg/get-connection db)
-          obra (if-let [s (re-seq #"\d+" query-string)] 
+          obra (if-let [s (re-seq #"\d+" query-string)]
                  (first s)
                  {:status 400
-                  :body (-> [:h1 "Debe ingresar el código de la obra social"] html str)})] 
-      (try 
-        (when-let [resultado (seq (buscar-planes-por-obra conn obra))] 
+                  :body (-> [:h1 "Debe ingresar el código de la obra social"] html str)})]
+      (try
+        (when-let [resultado (seq (query-fn conn obra))]
           {:status 200
            :body (-> resultado
                      vec
@@ -195,6 +201,16 @@
         (finally (pg/close-connection conn))))
     (catch IOException e {:status 500
                           :body (json/encode {:error (ex-message e)})})))
+
+(defn obtiene-copagos-guardados
+  [{:keys [query-string]}] 
+  (timbre/info "Query string: " query-string)
+  (obtiene-datos-por-obra query-string buscar-planes-por-obra))
+
+(defn obtiene-copagos-historico
+  [{:keys [query-string]}]
+  (timbre/info "Query string: " query-string)
+  (obtiene-datos-por-obra query-string buscar-historico-por-obra))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; BACKGROUND-JOB ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -239,6 +255,7 @@
                             :body (io/file "public/img/menu-icon.png")}
     ["/guardar"] (guardar req)
     [#"\/planes\?obra=\d+|\/planes"] (obtiene-copagos-guardados req)
+    [#"\/historico\?obra=\d+|\/historico"] (obtiene-copagos-historico req)
     :else {:status 404
            :headers {"Content-Type" "text/html"}
            :body (str (html [:h1 "¡Lo sentimos! No encontramos lo que anda buscando"]))}))
