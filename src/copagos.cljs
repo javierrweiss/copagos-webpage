@@ -6,8 +6,6 @@
 
 (def datos (r/atom (hash-map)))
 
-(def obra (r/atom 0))
-
 (defn limpiar-checkboxes
   []
   (->> ["consulta-comun" "consulta-especialista" "consulta-nutricion"]
@@ -72,18 +70,27 @@
     (contains? coll valor_nuevo) (disj coll valor_nuevo)
     :else (conj coll valor_nuevo)))
 
-(defn buscar-planes-actuales
-  [atom-coll] 
-  (-> (js/fetch (str "/planes?obra=" @obra)) 
-      (p/then (fn [response] 
+(defn buscar
+  [atomo-coleccion atomo-param ruta]
+  (-> (js/fetch (str ruta @atomo-param))
+      (p/then (fn [response]
                 (if (.-ok response)
                   (-> (.json response)
                       (p/then (fn [cuerpo]
                                 (prn (js->clj cuerpo))
-                                (reset! atom-coll (js->clj cuerpo :keywordize-keys true)))))
+                                (reset! atomo-coleccion (js->clj cuerpo :keywordize-keys true)))))
                   (js/alert "No se encontraron registros"))))
       (p/catch (fn [error]
-                 (js/console.error "Error en la solicitud" error)))))
+                 (prn error)
+                 (js/alert "¡Lo sentimos, hubo un problema!")))))
+
+(defn buscar-planes-actuales
+  [atom-coll atom-obra]
+  (buscar atom-coll atom-obra "/planes?obra="))
+
+(defn buscar-planes-historico
+  [atom-coll atom-obra]
+  (buscar atom-coll atom-obra "/historico?obra="))
  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;; COMPONENTES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -196,7 +203,8 @@
 
 (defn visual-registros
   []
-  (let [resultado (r/atom [])]
+  (let [resultado (r/atom [])
+        obra (r/atom 0)]
     (fn []
       [:div#visual-registros 
        [:h2 "Copagos por obra y especialidad"]
@@ -208,18 +216,42 @@
                   :placeholder "Ingrese el código de obra social y presione Enter"
                   :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
         [:div.botones 
-         [:button {:on-click #(buscar-planes-actuales resultado)} "Buscar"]]]
+         [:button {:on-click #(buscar-planes-actuales resultado obra)} "Buscar"]]]
        [tabla-planes-actuales resultado]])))
 
 (defn tabla-historico
-  []
+  [resultado]
   [:div.tabla-container
-   [:table.tabla]])
+   [:table.tabla
+    [:tr
+     [:th "Obra/plan"]
+     [:th "Categoría"]
+     [:th "Vigente desde"]
+     [:th "Copago"]]
+    (for [elem @resultado]
+      [:tr
+       [:td (:tbl_copago_historico/codplan elem)]
+       [:td (:tbl_copago_historico/categoria elem)]
+       [:td (:tbl_copago_historico/vigente_desde elem)]
+       [:td (str (:tbl_copago_historico/monto elem) " $")]])]])
 
 (defn historia
   []
-  [:div#historia 
-   [:h2 "Registro histórico"]])
+  (let [resultado (r/atom [])
+        obra (r/atom 0)]
+    (fn []
+      [:div#historia 
+       [:h2 "Registro histórico"]
+       [:div#visual-historia-grid
+        [:div
+         [:input {:type "number"
+                  :required true
+                  :value @obra
+                  :placeholder "Ingrese el código de obra social y presione Enter"
+                  :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
+        [:div.botones
+         [:button {:on-click #(buscar-planes-historico resultado obra)} "Buscar"]]]
+       [tabla-historico resultado]])))
 
 (defn pagina
   []
@@ -234,7 +266,7 @@
           :else [formulario])]])))
 
 (rdom/render [pagina] (js/document.getElementById "main"))
-
+ 
 
 (comment
 

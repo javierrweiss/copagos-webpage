@@ -134,7 +134,7 @@ button{
     color: white;
 }
 
-#visual-registros-grid {
+#visual-registros-grid, #visual-historia-grid {
     display: flex;
     flex-direction: row;
     align-items: center;
