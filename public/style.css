@@ -22,7 +22,7 @@ main {
     background-repeat: no-repeat;
     background-color: black;
     padding: 2.3rem;
-    min-height: 45vh;
+    min-height: 50vh;
 }
 
 footer{
@@ -103,7 +103,7 @@ button{
     color: paleturquoise;
 }
 
-.tabla {
+.tabla-container {
     display: flex;
     color: white;
     margin: 1rem, 3rem, 3rem, 3rem;
@@ -113,25 +113,23 @@ button{
     
 }
 
-table, th, td {
-    border: 1px solid white;
-}
-
-th, td {
+.tabla th, td {
+    border: 1px solid var(--darkgray);
     padding: 1.5rem;
 }
 
-tr:nth-child(even) {
+
+.tabla > tr:nth-child(even) {
     background-color: var(--rblue);
     color: var(--darkgray);
 }
 
-tr:nth-child(odd) {
+.tabla > tr:nth-child(odd) {
  background-color: black;
  color: white;
 }
 
-tr:hover {
+.tabla > tr:hover {
     background-color: var(--darkgray);
     color: white;
 }
@@ -143,13 +141,31 @@ tr:hover {
     justify-content: center;
 }
 
-#visual-registros {
+#visual-registros, #historia {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    background-color: var(--rblue);
+    border-radius: 8%;
+    border-style: groove;
 }
 
 #visual-registros, #historia > h2 {
+    color: #7B4B94;
+}
+
+#dropdownmenu-table tr {
+    border: 2px solid var(--rblue);
+    background-color: #7B4B94;
     color: white;
+}
+
+#dropdownmenu-table tr:hover{
+    background-color: gray;
+    color: white;
+}
+
+#opciones-dropdownmenu {
+    padding: 1rem;
 }

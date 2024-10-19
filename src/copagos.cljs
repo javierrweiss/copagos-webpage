@@ -90,18 +90,18 @@
 (defn dropdownmenu
   [seleccion menu-activo]
   [:div#opciones-dropdownmenu
-   [:ul#dropdownmenu-list
-    [:li
+   [:table#dropdownmenu-table
+    [:tr
      {:on-click #(do 
                    (reset! seleccion :visual-planes-actuales)
                    (swap! menu-activo not))}
      "Ver registros por obra"]
-    [:li
+    [:tr
      {:on-click #(do 
                    (reset! seleccion :visual-historica)
                    (swap! menu-activo not))}
      "Ver copago histórico por obra"]
-    [:li
+    [:tr
      {:on-click  #(do 
                     (reset! seleccion nil)
                     (swap! menu-activo not))}
@@ -180,8 +180,8 @@
 
 (defn tabla-planes-actuales
   [resultado]
-  [:div.tabla
-   [:table
+  [:div.tabla-container
+   [:table.tabla
     [:tr
      [:th "Obra/plan"]
      [:th "Especialidad"]
@@ -213,7 +213,8 @@
 
 (defn tabla-historico
   []
-  [:div.tabla])
+  [:div.tabla-container
+   [:table.tabla]])
 
 (defn historia
   []

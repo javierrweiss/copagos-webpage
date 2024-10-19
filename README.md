@@ -35,10 +35,10 @@ bb prod
     * Si la fecha de vigencia es superior a la actual, sólo se guarde en scweb.tbl_copago_historico.✅
 - Implementar alguna clase de scheduler que todos los días a cierta hora busque si existe un registro en scweb.tbl_copago_historico cuya fecha `vigente_desde` sea igual a la fecha actual y lo inserte en scweb.tbl_planes_obras_sociales. ✅
 - Crear UI para visualización de histórico
-- Crear UI para visualización del estado actual de la tabla (se me ocurre que cada uno de estos elementos los dejemos invisibles en el DOM y luego que un botón en la barra superior los haga visibles)
-    - Crear interfaz de búsqueda (se busca por obra)
-    - Crear tabla para mostrar resultados
-    - Función que invoca endpoint del backend
+- Crear UI para visualización del estado actual de la tabla (se me ocurre que cada uno de estos elementos los dejemos invisibles en el DOM y luego que un botón en la barra superior los haga visibles) ✅
+    - Crear interfaz de búsqueda (se busca por obra) ✅
+    - Crear tabla para mostrar resultados ✅
+    - Función que invoca endpoint del backend ✅
 - Agregar fecha de vigencia en el formulario ✅
 - Procesar planes antes de enviar al backend ✅
 - Arreglar ingreso de datos a tablas según nuevo input 
