@@ -204,24 +204,29 @@
 (defn visual-registros
   []
   (let [resultado (r/atom [])
-        obra (r/atom 0)]
+        obra (r/atom 0)
+        resultado-json (r/atom nil)]
     (fn []
-      [:div#visual-registros 
+      [:div#visual-registros
        [:h2 "Copagos por obra y especialidad"]
-       [:div#visual-registros-grid 
-        [:div 
+       [:div#visual-registros-grid
+        [:div
          [:input {:type "number"
                   :required true
                   :value @obra
                   :placeholder "Ingrese el código de obra social y presione Enter"
                   :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
-        [:div.botones 
-         [:button {:on-click #(buscar-planes-actuales resultado obra)} "Buscar"]]]
+        [:div.botones
+         [:button {:on-click (fn [_]
+                               (-> (buscar-planes-actuales resultado obra)
+                                   (p/then #(reset! resultado-json (.stringify js/JSON (clj->js @resultado))))
+                                   (p/then #(prn @resultado-json))))} 
+          "Buscar"]]]
        [:div.botones-iconos
         [:button#excel {:title "Descargue en excel"
                         :on-click #(prn %)}]]
        [tabla-planes-actuales resultado]])))
-
+ 
 (defn tabla-historico
   [resultado]
   [:div.tabla-container
@@ -241,7 +246,8 @@
 (defn historia
   []
   (let [resultado (r/atom [])
-        obra (r/atom 0)]
+        obra (r/atom 0)
+        resultado-json (r/atom nil)]
     (fn []
       [:div#historia 
        [:h2 "Registro histórico"]
@@ -253,7 +259,11 @@
                   :placeholder "Ingrese el código de obra social y presione Enter"
                   :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
         [:div.botones
-         [:button {:on-click #(buscar-planes-historico resultado obra)} "Buscar"]]]
+         [:button {:on-click (fn [_]
+                               (-> (buscar-planes-historico resultado obra)
+                                   (p/then #(reset! resultado-json (.stringify js/JSON (clj->js @resultado))))
+                                   (p/then #(prn @resultado-json))))} 
+          "Buscar"]]]
        [:div.botones-iconos
         [:button#excel {:title "Descargue en excel"
                         :on-click #(prn %)}]
@@ -338,6 +348,20 @@
     (set! (.-hidden visual-registros) true)
     (set! (.-hidden historia) true))
   
+(let [vect [{"tbl_planes_obras_sociales/codplan" "1900-B", 
+             "tbl_planes_obras_sociales/especialidad" 354, 
+             "tbl_planes_obras_sociales/categoria" "CONSULTA COMUN", 
+             "tbl_planes_obras_sociales/copago" 3500} 
+            {"tbl_planes_obras_sociales/codplan" "1900-B", 
+             "tbl_planes_obras_sociales/especialidad" 386, 
+             "tbl_planes_obras_sociales/categoria" "CONSULTA COMUN", 
+             "tbl_planes_obras_sociales/copago" 3500} 
+            {"tbl_planes_obras_sociales/codplan" "1900-B", 
+             "tbl_planes_obras_sociales/especialidad" 358, 
+             "tbl_planes_obras_sociales/categoria" "CONSULTA COMUN", 
+             "tbl_planes_obras_sociales/copago" 3500}]]
+   (.stringify js/JSON (clj->js vect)))
+
   )  
   
  
