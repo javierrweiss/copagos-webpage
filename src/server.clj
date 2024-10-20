@@ -253,6 +253,12 @@
     ["/img/menu-icon.png"] {:status 200
                             :headers {"Content-Type" "img/jpg"}
                             :body (io/file "public/img/menu-icon.png")}
+    ["/img/excel-icon.png"] {:status 200
+                            :headers {"Content-Type" "img/jpg"}
+                            :body (io/file "public/img/excel-icon.png")}
+    ["/img/grafico-icon.png"] {:status 200
+                            :headers {"Content-Type" "img/jpg"}
+                            :body (io/file "public/img/grafico-icon.png")}
     ["/guardar"] (guardar req)
     [#"\/planes\?obra=\d+|\/planes"] (obtiene-copagos-guardados req)
     [#"\/historico\?obra=\d+|\/historico"] (obtiene-copagos-historico req)

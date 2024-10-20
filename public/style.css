@@ -169,3 +169,35 @@ button{
 #opciones-dropdownmenu {
     padding: 1rem;
 }
+
+#menu-button{
+    border: 0.25rem solid  #7B4B94;
+    border-style: groove;
+    padding: 2rem;
+}
+
+#excel{
+    background-image: url('img/excel-icon.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border: none;
+    margin: 0.5rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+}
+
+#grafico{
+    background-image: url('img/grafico-icon.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border: none;
+    cursor: pointer;
+    margin: 0.5rem;
+    padding: 0.5rem;
+    width: 30px;
+    height: 30px;
+}

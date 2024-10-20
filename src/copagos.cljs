@@ -217,6 +217,9 @@
                   :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
         [:div.botones 
          [:button {:on-click #(buscar-planes-actuales resultado obra)} "Buscar"]]]
+       [:div.botones-iconos
+        [:button#excel {:title "Descargue en excel"
+                        :on-click #(prn %)}]]
        [tabla-planes-actuales resultado]])))
 
 (defn tabla-historico
@@ -251,6 +254,11 @@
                   :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
         [:div.botones
          [:button {:on-click #(buscar-planes-historico resultado obra)} "Buscar"]]]
+       [:div.botones-iconos
+        [:button#excel {:title "Descargue en excel"
+                        :on-click #(prn %)}]
+        [:button#grafico {:title "Visualice en un gráfico"
+                          :on-click #(prn %)}]]
        [tabla-historico resultado]])))
 
 (defn pagina
