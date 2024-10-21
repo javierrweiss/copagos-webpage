@@ -185,6 +185,13 @@
      [:button {:on-click enviar} "Enviar"]
      [:button {:on-click limpiar} "Cancelar"]]]])
 
+(defn excel
+  [dataset]
+  (let [_ dataset]
+    (fn []
+      [:div
+       [:h3 "Lo sentimos, esta opción aún no está disponible."]])))
+
 (defn tabla-planes-actuales
   [resultado]
   [:div.tabla-container
@@ -205,7 +212,8 @@
   []
   (let [resultado (r/atom [])
         obra (r/atom 0)
-        resultado-json (r/atom nil)]
+        resultado-json (r/atom nil)
+        opcion-excel (r/atom nil)]
     (fn []
       [:div#visual-registros
        [:h2 "Copagos por obra y especialidad"]
@@ -220,12 +228,14 @@
          [:button {:on-click (fn [_]
                                (-> (buscar-planes-actuales resultado obra)
                                    (p/then #(reset! resultado-json (.stringify js/JSON (clj->js @resultado))))
-                                   (p/then #(prn @resultado-json))))} 
+                                   (p/then #(prn @resultado-json))))}
           "Buscar"]]]
        [:div.botones-iconos
         [:button#excel {:title "Descargue en excel"
-                        :on-click #(prn %)}]]
-       [tabla-planes-actuales resultado]])))
+                        :on-click (fn [_] (swap! opcion-excel #(if (nil? %) :excel nil)))}]]
+       (if @opcion-excel
+         [excel resultado-json]
+         [tabla-planes-actuales resultado])])))
  
 (defn tabla-historico
   [resultado]
@@ -243,33 +253,56 @@
        [:td (:tbl_copago_historico/vigente_desde elem)]
        [:td (str (:tbl_copago_historico/monto elem) " $")]])]])
 
-(defn historia
-  []
-  (let [resultado (r/atom [])
-        obra (r/atom 0)
-        resultado-json (r/atom nil)]
+(defn grafico
+  [dataset]
+  (let [especificacion (clj->js {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+                                 :data {:values @dataset}
+                                 :mark "line"
+                                 :encoding {:x {:field "vigente_desde"
+                                                :type "ordinal"
+                                                :timeUnit "month"}
+                                            :y {:field "monto"
+                                                :type "quantitative"}
+                                            :color {:field "categoria"
+                                                    :type "nominal"}}})]
     (fn []
-      [:div#historia 
-       [:h2 "Registro histórico"]
-       [:div#visual-historia-grid
-        [:div
-         [:input {:type "number"
-                  :required true
-                  :value @obra
-                  :placeholder "Ingrese el código de obra social y presione Enter"
-                  :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
-        [:div.botones
-         [:button {:on-click (fn [_]
-                               (-> (buscar-planes-historico resultado obra)
-                                   (p/then #(reset! resultado-json (.stringify js/JSON (clj->js @resultado))))
-                                   (p/then #(prn @resultado-json))))} 
-          "Buscar"]]]
-       [:div.botones-iconos
-        [:button#excel {:title "Descargue en excel"
-                        :on-click #(prn %)}]
-        [:button#grafico {:title "Visualice en un gráfico"
-                          :on-click #(prn %)}]]
-       [tabla-historico resultado]])))
+      (prn (str "DataSet" @dataset))
+      (if-not @dataset
+        [:h3 "Debe realizar primero una búsqueda"]
+        (do (js/vegaEmbed "#visual-grafico" especificacion)
+            [:div#visual-grafico])))))
+
+  (defn historia
+    []
+    (let [resultado (r/atom [])
+          obra (r/atom 0)
+          resultado-json (r/atom nil)
+          toggle-option (r/atom nil)]
+      (fn []
+        [:div#historia
+         [:h2 "Registro histórico"]
+         [:div#visual-historia-grid
+          [:div
+           [:input {:type "number"
+                    :required true
+                    :value @obra
+                    :placeholder "Ingrese el código de obra social y presione Enter"
+                    :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
+          [:div.botones
+           [:button {:on-click (fn [_]
+                                 (-> (buscar-planes-historico resultado obra)
+                                     (p/then #(reset! resultado-json (.stringify js/JSON (clj->js @resultado))))
+                                     #_(p/then #(prn @resultado-json))))}
+            "Buscar"]]]
+         [:div.botones-iconos
+          [:button#excel {:title "Descargue en excel"
+                          :on-click (fn [_] (swap! toggle-option #(if (nil? %) :excel nil)))}]
+          [:button#grafico {:title "Visualice en un gráfico"
+                            :on-click (fn [_] (swap! toggle-option #(if (nil? %) :grafico nil)))}]]
+         (cond 
+           (= @toggle-option :excel) [excel resultado-json]
+           (= @toggle-option :grafico) [grafico resultado-json]
+           :else [tabla-historico resultado])])))
 
 (defn pagina
   []
@@ -290,6 +323,36 @@
 
   (limpiar-fecha)
   (limpiar-checkboxes)
+
+  (let [ds [{:a 'C', :b 2},
+            {:a 'C', :b 7},
+            {:a 'C', :b 4},
+            {:a 'D', :b 1},
+            {:a 'D', :b 2},
+            {:a 'D', :b 6},
+            {:a 'E', :b 8},
+            {:a 'E', :b 4},
+            {:a 'E', :b 7}]
+        especificacion (clj->js {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+                                 :data {:values ds}
+                                 :mark "bar"
+                                 :encoding {:x {:field "a"
+                                                :type "nominal"}
+                                            :y {:field "b"
+                                                :type "quantitative"}}})]
+  #_(js/vegaEmbed "#main" especificacion)
+    (rdom/render [grafico ds] (js/document.getElementById "main")))
+  
+  (let [data [{"tbl_copago_historico/codplan" "1820-A",
+               "tbl_copago_historico/categoria" "CONSULTA COMUN", 
+               "tbl_copago_historico/vigente_desde" "2024-10-19T03:00:00Z", 
+               "tbl_copago_historico/monto" 8000} 
+              {"tbl_copago_historico/codplan" "1820-A", 
+               "tbl_copago_historico/categoria" "CONSULTA NUTRICION", 
+               "tbl_copago_historico/vigente_desde" "2024-10-19T03:00:00Z", 
+               "tbl_copago_historico/monto" 8000}]]
+    (group-by ))
+  
 
   (.stringify js/JSON (clj->js {:a 33 :b 334}))
 

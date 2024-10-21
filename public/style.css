@@ -201,3 +201,8 @@ button{
     width: 30px;
     height: 30px;
 }
+
+#visual-grafico {
+    margin: 0.5rem;
+    padding: 0.5rem;
+}
