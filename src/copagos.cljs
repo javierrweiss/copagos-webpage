@@ -187,10 +187,17 @@
 
 (defn excel
   [dataset]
-  (let [_ dataset]
+  (let [_ (when dataset 
+            (let [worksheet (.json_to_sheet js/XLSX.utils dataset)
+                  workbook (.book_new js/XLSX.utils)
+                  _ (.book_append_sheet js/XLSX.utils workbook worksheet "Copagos")
+                  fecha (js/Date)]
+              (js/XLSX.writeFile workbook (str "copagos-" fecha ".xlsx") (clj->js {:compression true}))))]
     (fn []
-      [:div
-       [:h3 "Lo sentimos, esta opción aún no está disponible."]])))
+      (if-not dataset 
+        [:h3 "Lo sentimos, debe realizar primero una búsqueda."]
+        [:div 
+         [:h3 "Se está realizando su descarga"]]))))
 
 (defn tabla-planes-actuales
   [resultado]
@@ -211,8 +218,7 @@
 (defn visual-registros
   []
   (let [resultado (r/atom [])
-        obra (r/atom 0)
-        resultado-json (r/atom nil)
+        obra (r/atom 0) 
         opcion-excel (r/atom nil)]
     (fn []
       [:div#visual-registros
@@ -225,16 +231,13 @@
                   :placeholder "Ingrese el código de obra social y presione Enter"
                   :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
         [:div.botones
-         [:button {:on-click (fn [_]
-                               (-> (buscar-planes-actuales resultado obra)
-                                   (p/then #(reset! resultado-json (.stringify js/JSON (clj->js @resultado))))
-                                   (p/then #(prn @resultado-json))))}
+         [:button {:on-click #(buscar-planes-actuales resultado obra)}
           "Buscar"]]]
        [:div.botones-iconos
         [:button#excel {:title "Descargue en excel"
                         :on-click (fn [_] (swap! opcion-excel #(if (nil? %) :excel nil)))}]]
        (if @opcion-excel
-         [excel resultado-json]
+         [excel (clj->js @resultado)]
          [tabla-planes-actuales resultado])])))
 
 (defn tabla-historico
@@ -303,7 +306,7 @@
         [:button#grafico {:title "Visualice en un gráfico"
                           :on-click (fn [_] (swap! toggle-option #(if (nil? %) :grafico nil)))}]]
        (cond
-         (= @toggle-option :excel) [excel (.stringify js/JSON (clj->js @resultado))]
+         (= @toggle-option :excel) [excel (clj->js @resultado)]
          (= @toggle-option :grafico) [grafico resultado]
          :else [tabla-historico resultado])])))
 
@@ -374,18 +377,7 @@
           (js/alert "Ya existe un registro con esos datos")
            (js/alert "Hubo un error"))))
 
-
-  (.confirm js/window "¿Está seguro?") (.parseFloat js/Number "23.55")
-
-  (-> {:a 1 :z #{:a :b}} :z)
-
-  (let [p "p,f,e,r,t"
-        pl "K, L, Ñ, E"
-        pla " D ,A ,e , a"]
-    (parsear-planes 1820 pla))
-
   @datos
-  (every? @datos [:obra :plan :especialidad :copago :vigencia])
 
   (validar-datos @datos)
 
@@ -433,56 +425,50 @@
     #_(for [llave (keys obra-plan)]
         [grafico (get obra-plan llave) llave])
     (map (fn [llave]
-            (get obra-plan llave) )
+           (get obra-plan llave))
          (keys obra-plan)))
-                       
-                      
-  (let [obra-plan (group-by :tbl_copago_historico/codplan  [#:tbl_copago_historico{:codplan "1900-A",
-                                                                                   :categoria "CONSULTA NUTRICION",
-                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
-                                                                                   :monto 1800}
-                                                            #:tbl_copago_historico{:codplan "1900-A",
-                                                                                   :categoria "CONSULTA ESPECIALISTA",
-                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
-                                                                                   :monto 1800}
-                                                            #:tbl_copago_historico{:codplan "1900-A",
-                                                                                   :categoria "CONSULTA COMUN",
-                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
-                                                                                   :monto 1800}
-                                                            #:tbl_copago_historico{:codplan "1900-B",
-                                                                                   :categoria "CONSULTA NUTRICION",
-                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
-                                                                                   :monto 1800}
-                                                            #:tbl_copago_historico{:codplan "1900-B",
-                                                                                   :categoria "CONSULTA ESPECIALISTA",
-                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
-                                                                                   :monto 1800}
-                                                            #:tbl_copago_historico{:codplan "1900-B",
-                                                                                   :categoria "CONSULTA COMUN",
-                                                                                   :vigente_desde "2024-10-17T03:00:00Z",
-                                                                                   :monto 12000}
-                                                            #:tbl_copago_historico{:codplan "1900-B",
-                                                                                   :categoria "CONSULTA COMUN",
-                                                                                   :vigente_desde "2024-10-17T03:00:00Z",
-                                                                                   :monto 3500}])
-        especificaciones (mapv (fn [llave]
-                                 {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
-                                  :title llave
-                                  :data {:values (get obra-plan llave)}
-                                  :mark "line"
-                                  :encoding {:x {:field "vigente_desde"
-                                                 :type "ordinal"
-                                                 :timeUnit "month"}
-                                             :y {:field "monto"
-                                                 :type "quantitative"}
-                                             :color {:field "categoria"
-                                                     :type "nominal"}}})
-                               (keys obra-plan))
-        cantidad-especificaciones (range (count especificaciones))
-        ids (for [elem cantidad-especificaciones] (str "visual-grafico-" elem))] 
-    (into [:<>] (for [id ids] [:div {:id id}])))                    
-                      
-                      
-                      :rcf)  
+
+
+  (let [json "[{\"codplan\":\"1900-B\",\"especialidad\":354,\"categoria\":\"CONSULTA COMUN\",\"copago\":3500},
+              {\"codplan\":\"1900-B\",\"especialidad\":386,\"categoria\":\"CONSULTA COMUN\",\"copago\":3500},
+              {\"codplan\":\"1900-B\",\"especialidad\":358,\"categoria\":\"CONSULTA COMUN\",\"copago\":3500}]"
+        js-obj (clj->js [{"tbl_copago_historico/codplan" "1900-A",
+                          "tbl_copago_historico/categoria" "CONSULTA NUTRICION",
+                          "tbl_copago_historico/vigente_desde" "2024-10-18T03:00:00Z",
+                          "tbl_copago_historico/monto" 1800}
+                         {"tbl_copago_historico/codplan" "1900-A",
+                          "tbl_copago_historico/categoria" "CONSULTA ESPECIALISTA",
+                          "tbl_copago_historico/vigente_desde" "2024-10-18T03:00:00Z",
+                          "tbl_copago_historico/monto" 1800}
+                         {"tbl_copago_historico/codplan" "1900-A",
+                          "tbl_copago_historico/categoria" "CONSULTA COMUN",
+                          "tbl_copago_historico/vigente_desde" "2024-10-18T03:00:00Z",
+                          "tbl_copago_historico/monto" 1800}
+                         {"tbl_copago_historico/codplan" "1900-B",
+                          "tbl_copago_historico/categoria" "CONSULTA NUTRICION",
+                          "tbl_copago_historico/vigente_desde" "2024-10-18T03:00:00Z",
+                          "tbl_copago_historico/monto" 1800}
+                         {"tbl_copago_historico/codplan" "1900-B",
+                          "tbl_copago_historico/categoria" "CONSULTA ESPECIALISTA",
+                          "tbl_copago_historico/vigente_desde" "2024-10-18T03:00:00Z",
+                          "tbl_copago_historico/monto" 1800}
+                         {"tbl_copago_historico/codplan" "1900-B",
+                          "tbl_copago_historico/categoria" "CONSULTA COMUN",
+                          "tbl_copago_historico/vigente_desde" "2024-10-17T03:00:00Z",
+                          "tbl_copago_historico/monto" 12000}
+                         {"tbl_copago_historico/codplan" "1900-B",
+                          "tbl_copago_historico/categoria" "CONSULTA COMUN",
+                          "tbl_copago_historico/vigente_desde" "2024-10-17T03:00:00Z",
+                          "tbl_copago_historico/monto" 3500}])
+        worksheet (.json_to_sheet js/XLSX.utils js-obj)
+        workbook (.book_new js/XLSX.utils) 
+        _ (.book_append_sheet js/XLSX.utils workbook  worksheet "Copagos")
+        fecha (js/Date)]
+    #_workbook
+    #_(.json_to_sheet js/XLSX.utils js-obj)
+    (js/XLSX.writeFile workbook (str "copagos-" fecha ".xlsx") (clj->js {:compression true})))
+
+
+  :rcf)  
   
  
