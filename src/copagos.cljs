@@ -1,6 +1,6 @@
 (ns copagos
   (:require [reagent.core :as r]
-            [reagent.dom :as rdom] 
+            [reagent.dom :as rdom]
             [promesa.core :as p]
             [clojure.string :as string]))
 
@@ -16,8 +16,8 @@
   []
   (set! (.-value (js/document.getElementById "fecha")) ""))
 
-(defn limpiar 
-  [] 
+(defn limpiar
+  []
   (reset! datos (hash-map))
   (limpiar-fecha)
   (limpiar-checkboxes))
@@ -32,8 +32,8 @@
   (and
    (every? data [:obra :plan :especialidad :copago :vigencia])
    (seq (:especialidad data))))
- 
-(defn procesar 
+
+(defn procesar
   []
   (let [especialidades (->> (:especialidad @datos) (map name) (string/join ", "))
         mensaje-confirmacion (str "Se van a guardar los siguientes datos: \n"
@@ -65,8 +65,8 @@
 
 (defn registrar-seleccion-especialidad
   [coll valor_nuevo]
-  (cond 
-    (nil? coll) #{valor_nuevo} 
+  (cond
+    (nil? coll) #{valor_nuevo}
     (contains? coll valor_nuevo) (disj coll valor_nuevo)
     :else (conj coll valor_nuevo)))
 
@@ -91,7 +91,7 @@
 (defn buscar-planes-historico
   [atom-coll atom-obra]
   (buscar atom-coll atom-obra "/historico?obra="))
- 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;; COMPONENTES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn dropdownmenu
@@ -99,17 +99,17 @@
   [:div#opciones-dropdownmenu
    [:table#dropdownmenu-table
     [:tr
-     {:on-click #(do 
+     {:on-click #(do
                    (reset! seleccion :visual-planes-actuales)
                    (swap! menu-activo not))}
      "Ver registros por obra"]
     [:tr
-     {:on-click #(do 
+     {:on-click #(do
                    (reset! seleccion :visual-historica)
                    (swap! menu-activo not))}
      "Ver copago histórico por obra"]
     [:tr
-     {:on-click  #(do 
+     {:on-click  #(do
                     (reset! seleccion nil)
                     (swap! menu-activo not))}
      "Ingreso copagos"]]])
@@ -124,7 +124,7 @@
          [:img {:src "img/Logo Sanatorio Colegiales - Horizontal-689x300 2.png"
                 :alt "Logo"}]]
         [:div#titulo [:h1 "Ingreso copagos telemedicina"]]
-        [:div#menu 
+        [:div#menu
          (if @esta-abierto?
            [dropdownmenu seleccion esta-abierto?]
            [:button#menu-button {:on-click #(swap! esta-abierto? not)}])]]])))
@@ -236,7 +236,7 @@
        (if @opcion-excel
          [excel resultado-json]
          [tabla-planes-actuales resultado])])))
- 
+
 (defn tabla-historico
   [resultado]
   [:div.tabla-container
@@ -255,54 +255,57 @@
 
 (defn grafico
   [dataset]
-  (let [especificacion (clj->js {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
-                                 :data {:values @dataset}
-                                 :mark "line"
-                                 :encoding {:x {:field "vigente_desde"
-                                                :type "ordinal"
-                                                :timeUnit "month"}
-                                            :y {:field "monto"
-                                                :type "quantitative"}
-                                            :color {:field "categoria"
-                                                    :type "nominal"}}})]
+  (let [obra-plan (group-by :tbl_copago_historico/codplan @dataset)
+        especificaciones (mapv (fn [llave]
+                                 {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+                                  :title llave
+                                  :data {:values (get obra-plan llave)}
+                                  :mark "line"
+                                  :encoding {:x {:field "vigente_desde"
+                                                 :type "ordinal"
+                                                 :timeUnit "month"}
+                                             :y {:field "monto"
+                                                 :type "quantitative"}
+                                             :color {:field "categoria"
+                                                     :type "nominal"}}})
+                               (keys obra-plan))
+        cantidad-especificaciones (range (count especificaciones))
+        ids (for [elem cantidad-especificaciones] (str "visual-grafico-" elem))]
     (fn []
-      (prn (str "DataSet" @dataset))
+      (prn (str "DataSet procesado: " obra-plan))
       (if-not @dataset
         [:h3 "Debe realizar primero una búsqueda"]
-        (do (js/vegaEmbed "#visual-grafico" especificacion)
-            [:div#visual-grafico])))))
+        [:<> {:class "visual-grafico"}
+         (do (mapv #(js/vegaEmbed (str "#" %1) (clj->js %2)) ids especificaciones)
+             (for [id ids] [:div {:id id}]))]))))
 
-  (defn historia
-    []
-    (let [resultado (r/atom [])
-          obra (r/atom 0)
-          resultado-json (r/atom nil)
-          toggle-option (r/atom nil)]
-      (fn []
-        [:div#historia
-         [:h2 "Registro histórico"]
-         [:div#visual-historia-grid
-          [:div
-           [:input {:type "number"
-                    :required true
-                    :value @obra
-                    :placeholder "Ingrese el código de obra social y presione Enter"
-                    :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
-          [:div.botones
-           [:button {:on-click (fn [_]
-                                 (-> (buscar-planes-historico resultado obra)
-                                     (p/then #(reset! resultado-json (.stringify js/JSON (clj->js @resultado))))
-                                     #_(p/then #(prn @resultado-json))))}
-            "Buscar"]]]
-         [:div.botones-iconos
-          [:button#excel {:title "Descargue en excel"
-                          :on-click (fn [_] (swap! toggle-option #(if (nil? %) :excel nil)))}]
-          [:button#grafico {:title "Visualice en un gráfico"
-                            :on-click (fn [_] (swap! toggle-option #(if (nil? %) :grafico nil)))}]]
-         (cond 
-           (= @toggle-option :excel) [excel resultado-json]
-           (= @toggle-option :grafico) [grafico resultado-json]
-           :else [tabla-historico resultado])])))
+(defn historia
+  []
+  (let [resultado (r/atom [])
+        obra (r/atom 0)
+        toggle-option (r/atom nil)]
+    (fn []
+      [:div#historia
+       [:h2 "Registro histórico"]
+       [:div#visual-historia-grid
+        [:div
+         [:input {:type "number"
+                  :required true
+                  :value @obra
+                  :placeholder "Ingrese el código de obra social y presione Enter"
+                  :on-change #(reset! obra (->> % .-target .-value (.parseFloat js/Number)))}]]
+        [:div.botones
+         [:button {:on-click #(buscar-planes-historico resultado obra)}
+          "Buscar"]]]
+       [:div.botones-iconos
+        [:button#excel {:title "Descargue en excel"
+                        :on-click (fn [_] (swap! toggle-option #(if (nil? %) :excel nil)))}]
+        [:button#grafico {:title "Visualice en un gráfico"
+                          :on-click (fn [_] (swap! toggle-option #(if (nil? %) :grafico nil)))}]]
+       (cond
+         (= @toggle-option :excel) [excel (.stringify js/JSON (clj->js @resultado))]
+         (= @toggle-option :grafico) [grafico resultado]
+         :else [tabla-historico resultado])])))
 
 (defn pagina
   []
@@ -310,14 +313,14 @@
     (fn []
       [:<>
        [header seleccion-vista]
-       [:main 
-        (cond 
+       [:main
+        (cond
           (= @seleccion-vista :visual-historica) [historia]
           (= @seleccion-vista :visual-planes-actuales) [visual-registros]
           :else [formulario])]])))
 
 (rdom/render [pagina] (js/document.getElementById "main"))
- 
+
 
 (comment
 
@@ -340,19 +343,8 @@
                                                 :type "nominal"}
                                             :y {:field "b"
                                                 :type "quantitative"}}})]
-  #_(js/vegaEmbed "#main" especificacion)
+    #_(js/vegaEmbed "#main" especificacion)
     (rdom/render [grafico ds] (js/document.getElementById "main")))
-  
-  (let [data [{"tbl_copago_historico/codplan" "1820-A",
-               "tbl_copago_historico/categoria" "CONSULTA COMUN", 
-               "tbl_copago_historico/vigente_desde" "2024-10-19T03:00:00Z", 
-               "tbl_copago_historico/monto" 8000} 
-              {"tbl_copago_historico/codplan" "1820-A", 
-               "tbl_copago_historico/categoria" "CONSULTA NUTRICION", 
-               "tbl_copago_historico/vigente_desde" "2024-10-19T03:00:00Z", 
-               "tbl_copago_historico/monto" 8000}]]
-    (group-by ))
-  
 
   (.stringify js/JSON (clj->js {:a 33 :b 334}))
 
@@ -396,12 +388,7 @@
   (every? @datos [:obra :plan :especialidad :copago :vigencia])
 
   (validar-datos @datos)
-  
-  (reset! obra 1900)
- 
-  @obra
-  
-   
+
   (js/React.useEffect)
 
   (let [historia (js/document.getElementById "historia")
@@ -410,21 +397,92 @@
     (set! (.-hidden formulario-principal) false)
     (set! (.-hidden visual-registros) true)
     (set! (.-hidden historia) true))
-  
-(let [vect [{"tbl_planes_obras_sociales/codplan" "1900-B", 
-             "tbl_planes_obras_sociales/especialidad" 354, 
-             "tbl_planes_obras_sociales/categoria" "CONSULTA COMUN", 
-             "tbl_planes_obras_sociales/copago" 3500} 
-            {"tbl_planes_obras_sociales/codplan" "1900-B", 
-             "tbl_planes_obras_sociales/especialidad" 386, 
-             "tbl_planes_obras_sociales/categoria" "CONSULTA COMUN", 
-             "tbl_planes_obras_sociales/copago" 3500} 
-            {"tbl_planes_obras_sociales/codplan" "1900-B", 
-             "tbl_planes_obras_sociales/especialidad" 358, 
-             "tbl_planes_obras_sociales/categoria" "CONSULTA COMUN", 
-             "tbl_planes_obras_sociales/copago" 3500}]]
-   (.stringify js/JSON (clj->js vect)))
 
-  )  
+  (let [vect [#:tbl_copago_historico{:codplan "1900-A",
+                                     :categoria "CONSULTA NUTRICION",
+                                     :vigente_desde "2024-10-18T03:00:00Z",
+                                     :monto 1800}
+              #:tbl_copago_historico{:codplan "1900-A",
+                                     :categoria "CONSULTA ESPECIALISTA",
+                                     :vigente_desde "2024-10-18T03:00:00Z",
+                                     :monto 1800}
+              #:tbl_copago_historico{:codplan "1900-A",
+                                     :categoria "CONSULTA COMUN",
+                                     :vigente_desde "2024-10-18T03:00:00Z",
+                                     :monto 1800}
+              #:tbl_copago_historico{:codplan "1900-B",
+                                     :categoria "CONSULTA NUTRICION",
+                                     :vigente_desde "2024-10-18T03:00:00Z",
+                                     :monto 1800}
+              #:tbl_copago_historico{:codplan "1900-B",
+                                     :categoria "CONSULTA ESPECIALISTA",
+                                     :vigente_desde "2024-10-18T03:00:00Z",
+                                     :monto 1800}
+              #:tbl_copago_historico{:codplan "1900-B",
+                                     :categoria "CONSULTA COMUN",
+                                     :vigente_desde "2024-10-17T03:00:00Z",
+                                     :monto 12000}
+              #:tbl_copago_historico{:codplan "1900-B",
+                                     :categoria "CONSULTA COMUN",
+                                     :vigente_desde "2024-10-17T03:00:00Z",
+                                     :monto 3500}]
+        obra-plan (group-by :tbl_copago_historico/codplan vect)]
+    #_(into [:div] (map (fn [llave]
+                          [:div [grafico (get obra-plan llave) llave]])
+                        (keys obra-plan)))
+    #_(for [llave (keys obra-plan)]
+        [grafico (get obra-plan llave) llave])
+    (map (fn [llave]
+            (get obra-plan llave) )
+         (keys obra-plan)))
+                       
+                      
+  (let [obra-plan (group-by :tbl_copago_historico/codplan  [#:tbl_copago_historico{:codplan "1900-A",
+                                                                                   :categoria "CONSULTA NUTRICION",
+                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
+                                                                                   :monto 1800}
+                                                            #:tbl_copago_historico{:codplan "1900-A",
+                                                                                   :categoria "CONSULTA ESPECIALISTA",
+                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
+                                                                                   :monto 1800}
+                                                            #:tbl_copago_historico{:codplan "1900-A",
+                                                                                   :categoria "CONSULTA COMUN",
+                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
+                                                                                   :monto 1800}
+                                                            #:tbl_copago_historico{:codplan "1900-B",
+                                                                                   :categoria "CONSULTA NUTRICION",
+                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
+                                                                                   :monto 1800}
+                                                            #:tbl_copago_historico{:codplan "1900-B",
+                                                                                   :categoria "CONSULTA ESPECIALISTA",
+                                                                                   :vigente_desde "2024-10-18T03:00:00Z",
+                                                                                   :monto 1800}
+                                                            #:tbl_copago_historico{:codplan "1900-B",
+                                                                                   :categoria "CONSULTA COMUN",
+                                                                                   :vigente_desde "2024-10-17T03:00:00Z",
+                                                                                   :monto 12000}
+                                                            #:tbl_copago_historico{:codplan "1900-B",
+                                                                                   :categoria "CONSULTA COMUN",
+                                                                                   :vigente_desde "2024-10-17T03:00:00Z",
+                                                                                   :monto 3500}])
+        especificaciones (mapv (fn [llave]
+                                 {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+                                  :title llave
+                                  :data {:values (get obra-plan llave)}
+                                  :mark "line"
+                                  :encoding {:x {:field "vigente_desde"
+                                                 :type "ordinal"
+                                                 :timeUnit "month"}
+                                             :y {:field "monto"
+                                                 :type "quantitative"}
+                                             :color {:field "categoria"
+                                                     :type "nominal"}}})
+                               (keys obra-plan))
+        cantidad-especificaciones (range (count especificaciones))
+        ids (for [elem cantidad-especificaciones] (str "visual-grafico-" elem))] 
+    (into [:<>] (for [id ids] [:div {:id id}])))                    
+                      
+                      
+                      :rcf)  
   
  

@@ -202,7 +202,9 @@ button{
     height: 30px;
 }
 
-#visual-grafico {
+.visual-grafico {
+    display: grid;
+    grid-template-columns: auto auto auto;
     margin: 0.5rem;
     padding: 0.5rem;
 }
