@@ -244,6 +244,9 @@
                     :body (slurp "public/style.css")}
     ["/copagos.cljs"] {:status 200
                        :body (slurp "src/copagos.cljs")}
+    ["/public/xlsx.full.min.js"] {:status 200
+                                  :headers {"Content-Type" "text/javascript"}
+                                  :body (io/file "public/xlsx.full.min.js")}
     ["/img/Logo%20Sanatorio%20Colegiales%20-%20Horizontal-689x300%202.png"] {:status 200
                                                                              :headers {"Content-Type" "img/png"}
                                                                              :body (io/file "public/img/Logo Sanatorio Colegiales - Horizontal-689x300 2.png")}
