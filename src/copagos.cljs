@@ -275,7 +275,7 @@
       (prn (str "DataSet procesado: " obra-plan))
       (if-not @dataset
         [:h3 "Debe realizar primero una búsqueda"]
-        [:<> {:class "visual-grafico"}
+        [:div {:class "visual-grafico"}
          (do (mapv #(js/vegaEmbed (str "#" %1) (clj->js %2)) ids especificaciones)
              (for [id ids] [:div {:id id}]))]))))
 
