@@ -7,6 +7,7 @@
             [honey.sql :as sql]
             [cheshire.core :as json]
             [taoensso.timbre :as timbre]
+            [taoensso.timbre.appenders.core :as appenders]
             [clojure.string :as string]
             [overtone.at-at :as at]
             [hiccup2.core :refer [html]])
@@ -18,6 +19,9 @@
 (require '[pod.babashka.postgresql :as pg])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; MISCELANEO ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(timbre/merge-config!
+ {:appenders {:spit (appenders/spit-appender {:fname "/logs/copagos-web.log"})}})
 
 (def dia-en-ms (* 60000 60 24))
 
@@ -178,10 +182,12 @@
                             :body (json/encode {:error (ex-message e)})})
         (finally (pg/close-connection conn))))
     (catch IOException e {:status 500
-                          :body (json/encode {:error (ex-message e)})})))
+                          :body (json/encode {:error (ex-message e)})})
+    (catch Exception e {:status 500
+                        :body (json/encode {:error (ex-message e)})})))
 
 (defn obtiene-datos-por-obra
-  [query-string query-fn] 
+  [query-string query-fn]
   (try
     (let [conn (pg/get-connection db)
           obra (if-let [s (re-seq #"\d+" query-string)]
@@ -200,10 +206,12 @@
                             :body (json/encode {:error (ex-message e)})})
         (finally (pg/close-connection conn))))
     (catch IOException e {:status 500
-                          :body (json/encode {:error (ex-message e)})})))
+                          :body (json/encode {:error (ex-message e)})})
+    (catch Exception e {:status 500
+                        :body (json/encode {:error (ex-message e)})})))
 
 (defn obtiene-copagos-guardados
-  [{:keys [query-string]}] 
+  [{:keys [query-string]}]
   (timbre/info "Query string: " query-string)
   (obtiene-datos-por-obra query-string buscar-planes-por-obra))
 
@@ -225,8 +233,10 @@
          (try
            (guardar-si-esta-vigente conn)
            (catch IOException e (timbre/error (ex-message e)))
+           (catch Exception e (timbre/error (ex-message e)))
            (finally (pg/close-connection conn))))
-       (catch IOException e (timbre/error (ex-message e)))))
+       (catch IOException e (timbre/error (ex-message e)))
+       (catch Exception e (timbre/error (ex-message e)))))
    pool
    :initial-delay 1000))
 
@@ -257,18 +267,18 @@
                             :headers {"Content-Type" "img/jpg"}
                             :body (io/file "public/img/menu-icon.png")}
     ["/img/excel-icon.png"] {:status 200
-                            :headers {"Content-Type" "img/jpg"}
-                            :body (io/file "public/img/excel-icon.png")}
+                             :headers {"Content-Type" "img/jpg"}
+                             :body (io/file "public/img/excel-icon.png")}
     ["/img/grafico-icon.png"] {:status 200
-                            :headers {"Content-Type" "img/jpg"}
-                            :body (io/file "public/img/grafico-icon.png")}
+                               :headers {"Content-Type" "img/jpg"}
+                               :body (io/file "public/img/grafico-icon.png")}
     ["/guardar"] (guardar req)
     [#"\/planes\?obra=\d+|\/planes"] (obtiene-copagos-guardados req)
     [#"\/historico\?obra=\d+|\/historico"] (obtiene-copagos-historico req)
     :else {:status 404
            :headers {"Content-Type" "text/html"}
            :body (str (html [:h1 "¡Lo sentimos! No encontramos lo que anda buscando"]))}))
- 
+
 (defonce server (atom nil))
 
 (defn start []
@@ -325,14 +335,14 @@
 
 
 (comment
- 
+
   (match ["/planes?obra=122" #_#_"a" 122]
     ["a"] "Es A"
     [122] "Es numero"
     [#"si"] "Ajá"
     [#"\s"] "Espacio"
     [#"\w+"] "yes!!"
-    [#"\/planes\?obra=\d+"] "Bien!!!" 
+    [#"\/planes\?obra=\d+"] "Bien!!!"
     :else :not-found)
 
   (.isEqual (LocalDate/now) (LocalDate/parse "2024-10-15"))
@@ -360,6 +370,48 @@
 
   (pg/execute! db (insertar [["1800-A" 18 1800] ["1800-B" 58 2563]]))
 
+  (def db2 {:dbtype "postgresql"
+            :host "10.200.0.90"
+            :dbname "scweb"
+            :user "scweb"
+            :password (System/getenv "TELECONSULTA_SANCOL_CONTRASENA")
+            :port 5432})
+
+  (pg/execute!
+   db2
+   (buscar-copagos-por-entrar-en-vigencia))
+
+  (defn ejecucion
+    [_]
+    (at/every
+     5000
+     (fn []
+       (try
+         (let [conn (pg/get-connection db2)]
+           (try
+             (guardar-si-esta-vigente conn)
+             (catch IOException e (timbre/error (ex-message e)))
+             (finally (pg/close-connection conn))))
+         (catch IOException e (timbre/error (ex-message e)))))
+     pool))
+
+  (at/every
+   5000
+   (fn []
+     (let [r (rand)]
+       (try
+         (if (> r 0.50)
+           (throw (IllegalArgumentException. "Excepción X"))
+           (prn "correcto!"))
+         (catch IOException e (prn (ex-message e))))))
+   pool)
+
+  (at/show-schedule pool)
+
+  (at/stop 2 pool)
+
+  (at/stop-and-reset-pool! pool :strategy :kill)
+
   (let [{{:keys [codplan especialidad copago]} :body :as m} {:body {:codplan 2
                                                                     :especialidad 23
                                                                     :copago 343}}]
@@ -376,10 +428,10 @@
 
   (let [req @(client/get "http://127.0.0.1:1341/planes" {:query-params {:obra 1900}})]
     (-> req :body io/reader slurp json/decode))
-   
+
   (let [req @(client/get "http://127.0.0.1:1341/planes?obra=1900")]
     (-> req :body io/reader slurp json/decode))
-  
+
   @(client/get "http://127.0.0.1:1341/style.css")
 
   (def r (pg/execute! db (buscar "101-A" 931)))
@@ -403,6 +455,6 @@
     (try
       #_(guardar-si-esta-vigente conn)
       (buscar-planes-por-obra conn 1900)
-      (finally (pg/close-connection conn)))) 
- 
+      (finally (pg/close-connection conn))))
+
   :rcf)    
